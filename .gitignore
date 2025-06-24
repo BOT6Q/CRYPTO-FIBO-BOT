@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+.env
+opt_results.csv
+bt_raw_bars.csv
+your_crypto_data.csv

@@ -1,0 +1,5 @@
+backtrader>=1.9.78.0
+pandas>=2.3.0
+ccxt>=4.4.90
+python-dotenv>=1.1.0
+scikit-learn>=1.7.0

@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+
+[dev-packages]
+ccxt = ">=4.4.90"
+backtrader = "*"
+pandas = "*"
+scikit-learn = "*"
+python-dotenv = "*"
+pytest = "*"
+pre-commit = "*"
+black = "*"
+
+[requires]
+python_version = "3.10"

@@ -1,5 +1,6 @@
 from typing import Dict, List
 
+
 def trap_score(features: Dict) -> float:
     """
     Stub for your ML trap-probability model.
@@ -7,6 +8,7 @@ def trap_score(features: Dict) -> float:
     """
     # e.g. return model.predict_proba([features])[0,1]
     return 0.5  # placeholder
+
 
 def sentiment_score(texts: List[str]) -> float:
     """

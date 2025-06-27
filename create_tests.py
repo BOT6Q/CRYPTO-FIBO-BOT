@@ -9,10 +9,8 @@ minversion = 6.0
 testpaths = tests
 python_files = test_*.py
 """,
-
     # 2) tests/__init__.py (empty marker)
     "tests/__init__.py": "",
-
     # 3) tests/test_pattern1.py
     "tests/test_pattern1.py": """\
 import pandas as pd
@@ -37,7 +35,6 @@ def test_pattern1_triggers_on_synthetic():
     assert isinstance(res, PatternResult)
     assert res.triggered is True
 """,
-
     # 4) tests/test_risk.py
     "tests/test_risk.py": """\
 import pytest
@@ -51,7 +48,6 @@ def test_calculate_position_size_error_on_equal_prices():
     with pytest.raises(ValueError):
         calculate_position_size(balance=1000, risk_pct=0.01, entry=100, sl=100)
 """,
-
     # 5) tests/test_zoi.py
     "tests/test_zoi.py": """\
 import pandas as pd

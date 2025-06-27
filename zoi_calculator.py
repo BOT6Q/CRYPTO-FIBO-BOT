@@ -1,40 +1,41 @@
+from dataclasses import dataclass
 from typing import List
 
-class ZoiWindow:
-    """
-    A simple container for a Zone-Of-Interest (ZOI) window.
-    start/end are timestamps (or any comparable), activated is a bool.
-    """
-    def __init__(self, start, end, activated: bool = False):
-        self.start = start
-        self.end = end
-        self.activated = activated
 
-    def replace(self, activated: bool):
-        # Return a brand-new ZoiWindow with the same start/end but new activated flag
+@dataclass(frozen=True)
+class ZoiWindow:
+    start: float
+    end: float
+    activated: bool = False
+
+    def replace(self, activated: bool) -> "ZoiWindow":
         return ZoiWindow(self.start, self.end, activated)
+
 
 def compute_zois(df, lookback: int) -> List[ZoiWindow]:
     """
-    Slide a window of `lookback` bars over `df.index` and return a list of ZoiWindow(start, end).
-    This does NOT look at price columns at all, so it works on any df with a datetime-like index.
+    Slide a window of `lookback` bars over df, building a ZoiWindow
+    for each slice: (low, high).
     """
-    times = df.index
-    zois = []
-    # for each point after the first lookback bars
-    for i in range(lookback, len(times)):
-        start = times[i - lookback]
-        end = times[i]
-        zois.append(ZoiWindow(start, end))
+    if lookback <= 0 or lookback > len(df):
+        raise ValueError("lookback must be between 1 and len(df)")
+    zois: List[ZoiWindow] = []
+    for i in range(lookback, len(df) + 1):
+        window = df.iloc[i - lookback : i]
+        hi = float(window["high"].max())
+        lo = float(window["low"].min())
+        zois.append(ZoiWindow(start=lo, end=hi))
     return zois
 
-def activate_zois(zois: List[ZoiWindow], timestamp) -> List[ZoiWindow]:
+
+def activate_zois(zois: List[ZoiWindow], timestamp: float) -> List[ZoiWindow]:
     """
-    Given a list of ZoiWindow(s) and a timestamp, return a **new** list
-    where each window’s `.activated` flag is True iff start <= timestamp < end.
+    Given a list of ZoiWindow and a numeric timestamp,
+    return a new list where exactly the windows containing
+    `timestamp` have activated=True.
     """
-    activated_list = []
+    activated = []
     for z in zois:
-        is_active = (z.start <= timestamp < z.end)
-        activated_list.append(z.replace(is_active))
-    return activated_list
+        is_active = (z.start <= timestamp) and (timestamp <= z.end)
+        activated.append(z.replace(is_active))
+    return activated

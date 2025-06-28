@@ -8,8 +8,8 @@ from zoi_calculator import compute_zois
 # ——— Configuration ————————————————————————————————————————————————————
 CSV_PATH = os.getenv("BT_RAW_BARS", "bt_raw_bars.csv")
 INITIAL_CASH = 10_000
-PROFIT_RR = 3.0  # 3:1 reward-to-risk
-LOOKBACK = 100  # bars in memory for ZOI and pattern
+PROFIT_RR = 3.0  # reward:risk
+LOOKBACK = 100  # bars of history for ZOI & pattern
 # ————————————————————————————————————————————————————————————————————————
 
 
@@ -23,11 +23,11 @@ class FibTrapStrategy(bt.Strategy):
     )
 
     def __init__(self):
-        self.dataclose = self.datas[0].close
-        self.highs = self.datas[0].high
-        self.lows = self.datas[0].low
+        self.close = self.datas[0].close
+        self.high = self.datas[0].high
+        self.low = self.datas[0].low
 
-        # precompute ZOIs once
+        # Precompute ZOI windows once
         df = pd.read_csv(CSV_PATH, parse_dates=["datetime"])
         self.zois = compute_zois(df, lookback=self.p.lookback)
 
@@ -35,22 +35,26 @@ class FibTrapStrategy(bt.Strategy):
         if self.position:
             return
 
-        price = float(self.dataclose[0])
-        active = [z for z in self.zois if z.start <= price <= z.end]
-        if not active:
+        price = float(self.close[0])
+        # find any window where price sits
+        act = [z for z in self.zois if z.start <= price <= z.end]
+        if not act:
             return
-        z = active[-1]
+        z = act[-1]
 
-        data_slice = pd.DataFrame(
+        # Grab last `lookback` bars into a DataFrame
+        df_slice = pd.DataFrame(
             {
-                "high": self.highs.get(size=self.p.lookback),
-                "low": self.lows.get(size=self.p.lookback),
-                "close": self.dataclose.get(size=self.p.lookback),
+                "high": self.high.get(size=self.p.lookback),
+                "low": self.low.get(size=self.p.lookback),
+                "close": self.close.get(size=self.p.lookback),
             }
         )
 
         res: PatternResult = detect_pattern1(
-            data_slice, zoi_start=z.start, zoi_end=z.end
+            df_slice,
+            zoi_start=z.start,
+            zoi_end=z.end,
         )
         if not res.triggered:
             return
@@ -58,12 +62,15 @@ class FibTrapStrategy(bt.Strategy):
         entry = price
         sl = res.stop_loss
         size = calculate_position_size(
-            balance=self.broker.getvalue(), risk_pct=self.p.risk_pct, entry=entry, sl=sl
+            balance=self.broker.getvalue(),
+            risk_pct=self.p.risk_pct,
+            entry=entry,
+            sl=sl,
         )
         if size <= 0:
             return
 
-        # set exits
+        # Place entry + exits
         if res.direction == "down":
             pt = entry - (entry - sl) * self.p.profit_rr
             self.sell(size=size)
@@ -81,7 +88,7 @@ def run_backtest(risk_pct, zoi_start, zoi_end):
     cerebro.broker.setcash(INITIAL_CASH)
     cerebro.broker.setcommission(commission=0.0005)
 
-    # load via pandas + PandasData feed
+    # Feed in your CSV as time-series data
     df = pd.read_csv(CSV_PATH, parse_dates=["datetime"], index_col="datetime")
     data = bt.feeds.PandasData(dataname=df)
     cerebro.adddata(data)
@@ -95,6 +102,7 @@ def run_backtest(risk_pct, zoi_start, zoi_end):
         lookback=LOOKBACK,
     )
 
+    # Add analyzers
     cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name="sharpe")
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name="drawdown")
 
@@ -102,18 +110,19 @@ def run_backtest(risk_pct, zoi_start, zoi_end):
     pnl = cerebro.broker.getvalue() - INITIAL_CASH
     sharpe = strat.analyzers.sharpe.get_analysis().get("sharperatio", float("nan"))
     maxdd = strat.analyzers.drawdown.get_analysis()["max"]["drawdown"]
+
     return pnl, sharpe, maxdd
 
 
 def main():
     risks = [0.0025, 0.005, 0.01, 0.02]
-    zoi_starts = [40, 50, 60, 75]
-    zoi_ends = [20, 25, 30, 35]
-
+    starts = [40, 50, 60, 75]
+    ends = [20, 25, 30, 35]
     rows = []
+
     for r in risks:
-        for zs in zoi_starts:
-            for ze in zoi_ends:
+        for zs in starts:
+            for ze in ends:
                 print(f"▶ risk={r}, zoi_start={zs}, zoi_end={ze}")
                 pnl, sr, dd = run_backtest(r, zs, ze)
                 rows.append(

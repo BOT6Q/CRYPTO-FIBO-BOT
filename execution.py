@@ -1,35 +1,34 @@
-import os
-import ccxt
-from dotenv import load_dotenv
+import backtrader as bt
+from zoicare import YourStrategy  # replace with your import
 
 
-# —— Centralized via CCXT ——
-class CCXTExecutor:
-    def __init__(self):
-        load_dotenv()
-        name = os.getenv("EXCHANGE")
-        key = os.getenv("API_KEY")
-        secret = os.getenv("API_SECRET")
-        self.ex = getattr(ccxt, name)(
-            {
-                "apiKey": key,
-                "secret": secret,
-                "enableRateLimit": True,
-            }
-        )
+def run_backtest(data_feed, risk, zoi_start, zoi_end, profit_rr=3, start_cash=10000):
+    cerebro = bt.Cerebro()
+    cerebro.broker.setcash(start_cash)
 
-    def place_order(self, symbol: str, side: str, amount: float, price=None):
-        """
-        side: 'buy' or 'sell'; amount: base currency units.
-        """
-        params = {}
-        if price:
-            return self.ex.create_limit_order(symbol, side, amount, price, params)
-        else:
-            return self.ex.create_market_order(symbol, side, amount, params)
+    # Data feed
+    cerebro.adddata(data_feed)
 
+    # Strategy with parameters
+    cerebro.addstrategy(
+        YourStrategy,
+        risk=risk,
+        zoi_start=zoi_start,
+        zoi_end=zoi_end,
+        profit_rr=profit_rr,
+    )
 
-# —— Decentralized GMX stub ——
-# from web3 import Web3
-# def open_position(...): ...
-# def close_position(...): ...
+    # Analyzers
+    cerebro.addanalyzer(bt.analyzers.Sharpe, _name="sharpe")
+    cerebro.addanalyzer(bt.analyzers.SQN, _name="sqn")  # optional
+    cerebro.addanalyzer(bt.analyzers.DrawDown, _name="drawdown")
+
+    # Run
+    strat = cerebro.run()[0]
+
+    # Results
+    sharpe = strat.analyzers.sharpe.get_analysis().get("sharperatio", None)
+    pnl = cerebro.broker.getvalue() - start_cash
+    dd = strat.analyzers.drawdown.get_analysis().max.drawdown
+
+    return pnl, sharpe, dd

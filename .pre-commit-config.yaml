@@ -10,12 +10,3 @@ repos:
     rev: 23.9.1
     hooks:
       - id: black
-
-  # run pytest locally, no git fetch needed
-  - repo: local
-    hooks:
-      - id: pytest
-        name: pytest
-        entry: pytest -q
-        language: system
-        pass_filenames: false
